@@ -17,3 +17,27 @@
 @media (prefers-reduced-motion: no-preference) {
   .reveal-pending:focus-within { opacity: 1; transform: none; }
 }
+
+/* A quiet entrance on load; content remains available without JavaScript. */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes page-entrance {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes page-art-entrance {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  .hero-copy > .eyebrow,
+  .mobile-hero-copy > .eyebrow { animation: page-entrance 650ms ease-out both; }
+  .hero-copy > h1,
+  .mobile-hero-copy > h1 { animation: page-entrance 750ms 100ms ease-out both; }
+  .hero-description,
+  .mobile-hero-copy > p:not(.eyebrow) { animation: page-entrance 750ms 220ms ease-out both; }
+  .hero-copy > .actions,
+  .mobile-hero-copy > .actions { animation: page-entrance 700ms 330ms ease-out both; }
+  .hero-art img,
+  .mobile-hero-photo img { animation: page-art-entrance 1000ms 100ms ease-out both; }
+  .hero-copy > .actions:focus-within,
+  .mobile-hero-copy > .actions:focus-within { animation: none; }
+}
