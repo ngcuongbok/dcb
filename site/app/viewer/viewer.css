@@ -2206,7 +2206,8 @@
     place-items: center;
     padding: 18px;
     background: rgba(63, 73, 57, .54);
-    backdrop-filter: blur(8px)
+    backdrop-filter: blur(8px);
+    animation: sbModalFadeIn .26s ease both
   }
 
   #ptb-app .sb-help-modal {
@@ -2216,7 +2217,25 @@
     background: rgba(255, 253, 251, .98);
     color: #3d3029;
     box-shadow: 0 22px 70px rgba(63, 73, 57, .28);
-    overflow: hidden
+    overflow: hidden;
+    animation: sbViewerReveal .36s cubic-bezier(.22, 1, .36, 1)
+  }
+
+  #ptb-app .sb-tab-panel {
+    animation: sbViewerReveal .26s ease
+  }
+
+  @keyframes sbViewerReveal {
+    from { opacity: 0; transform: translateY(8px) }
+    to { opacity: 1; transform: translateY(0) }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    #ptb-app .sb-help-backdrop,
+    #ptb-app .sb-help-modal,
+    #ptb-app .sb-tab-panel {
+      animation: none
+    }
   }
 
   #ptb-app .sb-help-modal-head {
