@@ -1,1 +1,19 @@
-{"name":"dicii-landing","version":"1.0.0","private":true,"type":"module","scripts":{"prepare-viewer":"node scripts/copy-viewer.mjs","dev":"npm run prepare-viewer && next dev","build":"npm run prepare-viewer && next build"},"dependencies":{"next":"16.4.6","react":"19.3.1","react-dom":"19.3.1"},"devDependencies":{"wrangler":"^4.162.0"}}
+{
+  "name": "dicii-landing",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "prepare-viewer": "node scripts/copy-viewer.mjs",
+    "dev": "npm run prepare-viewer && next dev",
+    "build": "npm run prepare-viewer && next build && node scripts/prepare-output.mjs"
+  },
+  "dependencies": {
+    "next": "16.4.6",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "wrangler": "^4.162.0"
+  }
+}
