@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 
 export default function ScrollReveal() {
+  const pathname = usePathname();
   useEffect(() => {
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
     if (reducedMotion.matches || !('IntersectionObserver' in window)) return;
@@ -17,7 +19,7 @@ export default function ScrollReveal() {
           observer.unobserve(entry.target);
         }
       });
-    }, { threshold: 0.08, rootMargin: '0px 0px -30px 0px' });
+    }, { threshold: 0.04, rootMargin: '0px 0px -6% 0px' });
 
     targets.forEach((target) => {
       // Keep the initial viewport visible and progressively enhance lower sections.
@@ -39,6 +41,6 @@ export default function ScrollReveal() {
       observer.disconnect();
       targets.forEach((target) => target.classList.remove('reveal-pending'));
     };
-  }, []);
+  }, [pathname]);
   return null;
 }
