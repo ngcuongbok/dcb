@@ -107,6 +107,19 @@
       content.insertBefore(box, content.firstChild);
     }
 
+    // Preview preparation is optional and never blocks the customer flow.
+    function warmSharingPreview(res) {
+      if (!res || res.error || res.lazyFiles || res.loadingFiles) return;
+      var current = new URL(window.location.href);
+      var id = current.searchParams.get('id') || '';
+      if (!/^[A-Za-z0-9_-]{6,160}$/.test(id)) return;
+      var url = new URL('/viewer-preview-warm', current.origin);
+      url.searchParams.set('id', id);
+      var requestedMode = current.searchParams.get('mode');
+      if (requestedMode) url.searchParams.set('mode', requestedMode);
+      fetch(url.toString(), {method:'POST', keepalive:true}).catch(function () {});
+    }
+
     function applyViewerFilesData(res) {
       if (!res || res.error) {
         if (sbImagesLoading) {
@@ -121,6 +134,7 @@
         showLazyLoadError((res && res.error) || 'Không thể tải danh sách ảnh.');
         return;
       }
+      warmSharingPreview(res);
       if (mode === 'addon' || res.mode === 'addon') {
         res.mode = 'addon';
         onAddon(res);
@@ -9842,6 +9856,7 @@
     };
 
     function onViewerData(res) {
+      warmSharingPreview(res);
       if (mode === 'addon' || (res && res.mode === 'addon')) {
         if (res) res.mode = 'addon';
         onAddon(res);

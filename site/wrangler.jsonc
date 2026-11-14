@@ -8,8 +8,12 @@
     "run_worker_first": [
       "/viewer",
       "/viewer/",
-      "/viewer/index.html"
+      "/viewer/index.html",
+      "/viewer-preview-warm"
     ]
   },
-  "main": "worker.mjs"
+  "main": "worker.mjs",
+  "kv_namespaces": [
+    { "binding": "OG_PREVIEWS", "id": "3644510d88fe4e1e8ac962efa8382c3d" }
+  ]
 }

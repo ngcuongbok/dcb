@@ -52,3 +52,42 @@ test('old Apps Script fallback does not request an image', async () => {
   try { assert.equal(await readPreview({id:'123456789',mode:''}),null); assert.equal(calls,1); }
   finally { globalThis.fetch=originalFetch; }
 });
+
+test('background refresh stores only an image selected by the backend', async () => {
+  const originalFetch = globalThis.fetch;
+  const values = new Map();
+  const kv = {get: async key => values.has(key) ? JSON.parse(values.get(key)) : null,
+    put: async (key, value) => values.set(key, value)};
+  const pending = [];
+  globalThis.fetch = async input => new URL(String(input)).hostname === 'script.google.com'
+    ? Response.json({ok:true, mode:'sb', imageIds:['trustedIMAGE001']})
+    : new Response(null,{headers:{'content-type':'image/jpeg'}});
+  try {
+    const req = new Request('https://example.com/viewer-preview-warm?id=123456789&mode=sb&imageId=attackerIMAGE01',
+      {method:'POST',headers:{Origin:'https://example.com'}});
+    const result = await worker.fetch(req, {OG_PREVIEWS:kv}, {waitUntil(p){pending.push(p);}});
+    assert.equal(result.status,202);
+    await Promise.all(pending);
+    assert.equal(JSON.parse(values.get('viewer:123456789:sb')).imageId,'trustedIMAGE001');
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test('background refresh rejects cross-origin calls and works without storage', async () => {
+  const url = 'https://example.com/viewer-preview-warm?id=123456789';
+  const context = {waitUntil(){throw new Error('must not run');}};
+  assert.equal((await worker.fetch(new Request(url,{method:'POST',headers:{Origin:'https://other.example'}}),{},context)).status,403);
+  assert.equal((await worker.fetch(new Request(url,{method:'POST',headers:{Origin:'https://example.com'}}),{},context)).status,503);
+  assert.equal((await worker.fetch(new Request(url),{},context)).status,405);
+});
+
+test('fresh saved preview avoids another backend lookup', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = () => {throw new Error('must not call backend');};
+  const pending=[];
+  const kv={get:async () => ({imageId:'trustedIMAGE001',type:'image/jpeg',savedAt:Date.now()})};
+  try {
+    const req=new Request('https://example.com/viewer-preview-warm?id=123456789',{method:'POST',headers:{Origin:'https://example.com'}});
+    assert.equal((await worker.fetch(req,{OG_PREVIEWS:kv},{waitUntil(p){pending.push(p);}})).status,202);
+    await Promise.all(pending);
+  } finally { globalThis.fetch=originalFetch; }
+});

@@ -6,6 +6,7 @@ const CRAWLER = /facebookexternalhit|facebot|zalobot|telegrambot|twitterbot|what
 const IMAGE_ID = /^[A-Za-z0-9_-]{10,160}$/;
 const SESSION_ID = /^[A-Za-z0-9_-]{6,160}$/;
 const MODES = new Set(['sb','selfbooth','ptb','photobooth','addon','extras','add-on','in-them']);
+const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 
 export function isPreviewCrawler(userAgent) { return CRAWLER.test(userAgent || ''); }
 export function previewParams(url) {
@@ -32,7 +33,7 @@ async function timedFetch(url, options = {}, timeoutMs = 5000) {
   try { return await fetch(url, { ...options, redirect:'follow', signal:controller.signal }); }
   finally { clearTimeout(timer); }
 }
-export async function readPreview(params) {
+export async function readPreview(params, timeoutMs = 6500) {
   const endpoint = new URL(SCRIPT_URL);
   endpoint.searchParams.set('action', 'getSharePreview');
   // Older deployments only look for `id`; without it they safely return the
@@ -40,7 +41,7 @@ export async function readPreview(params) {
   endpoint.searchParams.set('preview_id', params.id);
   if (params.mode) endpoint.searchParams.set('mode', params.mode);
   try {
-    const response = await timedFetch(endpoint, { headers:{'Accept':'application/json'} }, 6500);
+    const response = await timedFetch(endpoint, { headers:{'Accept':'application/json'} }, timeoutMs);
     if (!response.ok) return null;
     const data = await response.json();
     if (data?.ok !== true || !Array.isArray(data.imageIds)) return null;
@@ -58,7 +59,40 @@ export async function readPreview(params) {
     return {...selected, mode:['sb','ptb','addon'].includes(data.mode) ? data.mode : params.mode};
   } catch { return null; }
 }
-async function getPreview(url, params, ctx) {
+function storageKey(params) {
+  return 'viewer:' + params.id + ':' + params.mode;
+}
+async function storedPreview(env, params) {
+  if (!env.OG_PREVIEWS) return null;
+  try {
+    const entry = await env.OG_PREVIEWS.get(storageKey(params), 'json');
+    const imageId = typeof entry?.imageId === 'string' && IMAGE_ID.test(entry.imageId) ? entry.imageId : '';
+    if (!imageId || !['image/jpeg','image/png','image/webp'].includes(entry.type)) return null;
+    return {...entry, image: 'https://lh3.googleusercontent.com/d/' + imageId + '=w1600'};
+  } catch { return null; }
+}
+async function warmPreview(request, env, ctx) {
+  const url = new URL(request.url);
+  if (request.method !== 'POST') return new Response(null, {status:405,headers:{Allow:'POST'}});
+  if (request.headers.get('Origin') !== url.origin) return new Response(null,{status:403});
+  const params = previewParams(url);
+  if (!params) return new Response(null,{status:400});
+  if (!env.OG_PREVIEWS) return new Response(null,{status:503});
+  ctx.waitUntil((async () => {
+    const current = await storedPreview(env, params);
+    if (current && Date.now() - current.savedAt < REFRESH_INTERVAL_MS) return;
+    // Never accept an image ID from the browser. The backend resolves the
+    // session and selects the image; readPreview also checks public access.
+    const result = await readPreview(params, 20000);
+    const match = result?.image?.match(/^https:\/\/lh3\.googleusercontent\.com\/d\/([A-Za-z0-9_-]{10,160})=w1600$/);
+    if (!match) return;
+    await env.OG_PREVIEWS.put(storageKey(params), JSON.stringify({imageId:match[1],type:result.type,mode:result.mode,savedAt:Date.now()}), {expirationTtl:30 * 24 * 60 * 60});
+  })().catch(() => {}));
+  return new Response(null,{status:202,headers:{'Cache-Control':'no-store'}});
+}
+async function getPreview(url, params, ctx, env) {
+  const saved = await storedPreview(env, params);
+  if (saved) return saved;
   // Cache only successful image lookups and isolate entries by full session/mode.
   const keyUrl = new URL('/__dicii_og_cache_v1', url.origin);
   keyUrl.searchParams.set('id', params.id);
@@ -99,11 +133,12 @@ function rewrite(response, requestUrl, params, result) {
 }
 export default {
   async fetch(request, env, ctx) {
+    if (new URL(request.url).pathname === '/viewer-preview-warm') return warmPreview(request, env, ctx);
     const asset = await env.ASSETS.fetch(request);
     if (request.method !== 'GET' || asset.status !== 200 || !isPreviewCrawler(request.headers.get('user-agent'))) return asset;
     const url = new URL(request.url);
     const params = previewParams(url);
-    const result = params ? await getPreview(url, params, ctx) : null;
+    const result = params ? await getPreview(url, params, ctx, env) : null;
     return rewrite(asset, url, params, result);
   },
 };
