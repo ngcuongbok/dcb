@@ -1,0 +1,2 @@
+import {env} from '../../../../lib/data';
+export async function GET(req,{params}){const {key}=await params;if(!/^[a-f0-9-]+\.(jpg|png|webp|gif)$/.test(key))return new Response(null,{status:404});const e=await env();const item=await e.MEDIA.get(key);if(!item)return new Response(null,{status:404});return new Response(item.body,{headers:{'Content-Type':item.httpMetadata?.contentType||'application/octet-stream','X-Content-Type-Options':'nosniff','Cache-Control':'public, max-age=31536000, immutable'}});}

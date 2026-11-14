@@ -1,0 +1,11 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "diciibooth-web",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {"directory": ".open-next/assets", "binding": "ASSETS"},
+  "d1_databases": [{"binding": "DB", "database_name": "dicii-blog", "database_id": "REPLACE_WITH_D1_ID"}],
+  "r2_buckets": [{"binding": "MEDIA", "bucket_name": "dicii-blog-media"}],
+  "vars": {"SITE_URL": "https://diciibooth.vn", "ACCESS_TEAM_DOMAIN": "", "ACCESS_AUD": ""}
+}
