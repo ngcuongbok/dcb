@@ -1,0 +1,5 @@
+site/node_modules
+site/.next
+site/.open-next
+site/.wrangler
+site/public/viewer

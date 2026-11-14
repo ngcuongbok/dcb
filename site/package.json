@@ -1,0 +1,28 @@
+{
+  "name": "dicii-website",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "prepare-viewer": "node scripts/copy-viewer.mjs",
+    "dev": "npm run prepare-viewer && next dev",
+    "build": "npm run prepare-viewer && next build",
+    "build:cloudflare": "npm run prepare-viewer && opennextjs-cloudflare build",
+    "preview": "opennextjs-cloudflare preview",
+    "deploy": "opennextjs-cloudflare deploy"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@opennextjs/cloudflare": "^1.20.17",
+    "jose": "^6.2.17",
+    "next": "^16.4.6",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-markdown": "^10.1.0",
+    "wrangler": "^4.162.0"
+  },
+  "private": true
+}

@@ -1,0 +1,7 @@
+import {notFound} from 'next/navigation';
+import Link from 'next/link';
+import ReactMarkdown from 'react-markdown';
+import {post,labels,base} from '../../../lib/data';
+export const dynamic='force-dynamic';
+export async function generateMetadata({params}){const {slug}=await params;const p=await post(slug);if(!p)return {};return {title:p.title,description:p.description,alternates:{canonical:'/blog/'+p.slug},openGraph:{type:'article',title:p.title,description:p.description,url:'/blog/'+p.slug,publishedTime:p.published_at,images:p.cover?[p.cover]:[]}};}
+export default async function Article({params}){const {slug}=await params;const p=await post(slug);if(!p)notFound();const json={ '@context':'https://schema.org','@type':'BlogPosting',headline:p.title,description:p.description,datePublished:p.published_at,dateModified:p.updated_at,mainEntityOfPage:base+'/blog/'+p.slug,...(p.cover?{image:new URL(p.cover,base).href}:{}) };return <main className="article"><Link href="/blog" className="back">← Tất cả bài viết</Link><p className="eyebrow">{labels(p).join(' · ') || 'DICII JOURNAL'}</p><h1>{p.title}</h1><p className="lead">{p.description}</p>{p.published_at&&<time dateTime={p.published_at}>{new Date(p.published_at).toLocaleDateString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'})}</time>}{p.cover&&<img className="cover" src={p.cover} alt="" />}<div className="prose"><ReactMarkdown>{p.content}</ReactMarkdown></div><script type="application/ld+json" dangerouslySetInnerHTML={{__html:JSON.stringify(json).replace(/</g,'\u003c')}} /></main>}
