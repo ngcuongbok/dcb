@@ -1,5 +1,7 @@
 // Per-session sharing previews for link crawlers. Regular viewer requests are
 // served straight from static assets without waiting for Drive or Apps Script.
+import { reportRequest } from './reports.mjs';
+import { syncRequest } from './report-sync.mjs';
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw4V5uwc4dNMR3f4JcsVuwpoOm5N8JhxjNQBXjTdWqEAezqr53B-6RkQY0C1O85Zssa/exec';
 const DEFAULT_IMAGE = 'https://i.ibb.co/ksJDTmT7/new-transparent.png';
 const CRAWLER = /facebookexternalhit|facebot|zalobot|telegrambot|twitterbot|whatsapp|discordbot|slackbot|linkedinbot|pinterest|skypeuripreview/i;
@@ -133,7 +135,21 @@ function rewrite(response, requestUrl, params, result) {
 }
 export default {
   async fetch(request, env, ctx) {
-    if (new URL(request.url).pathname === '/viewer-preview-warm') return warmPreview(request, env, ctx);
+    const pathname = new URL(request.url).pathname;
+    if (pathname === '/api/report-sync') return syncRequest(request, env);
+    if (pathname === '/admin' || pathname.startsWith('/admin/') || pathname === '/admin-report.html') {
+      if (pathname.startsWith('/admin/api/')) return reportRequest(request, env);
+      if (request.method !== 'GET') return new Response(null,{status:405});
+      const checkUrl = new URL('/admin/api/me', request.url);
+      const check = await reportRequest(new Request(checkUrl, {headers:request.headers}), env);
+      if (!check.ok) return check;
+      const page = await env.ASSETS.fetch(new Request(new URL('/admin-report.html',request.url), request));
+      const headers = new Headers(page.headers);
+      headers.set('Cache-Control','private, no-store');
+      headers.set('X-Robots-Tag','noindex');
+      return new Response(page.body,{status:page.status,headers});
+    }
+    if (pathname === '/viewer-preview-warm') return warmPreview(request, env, ctx);
     const asset = await env.ASSETS.fetch(request);
     if (request.method !== 'GET' || asset.status !== 200 || !isPreviewCrawler(request.headers.get('user-agent'))) return asset;
     const url = new URL(request.url);

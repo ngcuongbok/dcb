@@ -9,11 +9,18 @@
       "/viewer",
       "/viewer/",
       "/viewer/index.html",
-      "/viewer-preview-warm"
+      "/viewer-preview-warm",
+      "/admin",
+      "/admin/*",
+      "/admin-report.html",
+      "/api/report-sync"
     ]
   },
   "main": "worker.mjs",
   "kv_namespaces": [
     { "binding": "OG_PREVIEWS", "id": "3644510d88fe4e1e8ac962efa8382c3d" }
+  ],
+  "d1_databases": [
+    { "binding": "REPORTS_DB", "database_name": "dicii-online-reports", "database_id": "4a9bfc50-3462-4ab5-883b-6cda073a0f36" }
   ]
 }
