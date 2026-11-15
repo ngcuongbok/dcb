@@ -1,16 +1,16 @@
 # Feature Spec: báo cáo bán hàng online qua Cloudflare D1
 
 ## User Request
-Đồng bộ dữ liệu bán hàng vào D1 và cho chủ cửa hàng, quản lý xem doanh thu, đơn hàng, ca và nhân viên trên địa chỉ demo Cloudflare; chủ cửa hàng có thể quản lý email được xem.
+Đồng bộ dữ liệu bán hàng vào D1 và cho admin xem doanh thu, đơn hàng, ca và nhân viên trên địa chỉ demo Cloudflare.
 
 ## Goal
 Một bản báo cáo online chỉ đọc, có thời điểm đồng bộ và dùng cách tính tương ứng báo cáo tại máy.
 
 ## In Scope
 - Đồng bộ dữ liệu cần thiết từ hệ thống bán hàng hiện có, hỗ trợ lịch sử và thay đổi sau đó.
-- D1 lưu dữ liệu báo cáo; Cloudflare Access xác thực người xem, phân biệt chủ cửa hàng và quản lý.
+- D1 lưu dữ liệu báo cáo; đăng nhập mật khẩu dành cho admin.
 - Hiển thị doanh thu, đơn/key, ca và nhân viên, với bộ lọc ngày.
-- Cơ chế quản lý danh sách email dành riêng cho chủ cửa hàng.
+- Các tab tổng quan, nhân viên và ca làm việc.
 
 ## Out Of Scope
 - Thay Sheets làm nguồn vận hành, ghi ngược đơn, sửa ca, đổi key hoặc thao tác thu ngân.
@@ -23,7 +23,7 @@ Một bản báo cáo online chỉ đọc, có thời điểm đồng bộ và d
 
 ## Acceptance Criteria
 - [ ] Chưa cấu hình đăng nhập thì trang/API báo cáo từ chối, kể cả truy cập trực tiếp.
-- [ ] Chỉ chủ cửa hàng được quản lý email; quản lý chỉ xem báo cáo.
+- [ ] Chỉ tài khoản admin đã đăng nhập được xem báo cáo.
 - [ ] Đồng bộ có xác thực riêng, có retry và không xóa dữ liệu khi snapshot lỗi hoặc không đầy đủ.
 - [ ] Báo cáo theo ngày khớp định nghĩa tại máy, không nhân đôi đơn có nhiều key.
 - [ ] Có thời gian đồng bộ gần nhất và cảnh báo khi nguồn ngừng cập nhật.

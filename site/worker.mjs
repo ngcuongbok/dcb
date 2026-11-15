@@ -1,6 +1,7 @@
 // Per-session sharing previews for link crawlers. Regular viewer requests are
 // served straight from static assets without waiting for Drive or Apps Script.
 import { reportRequest } from './reports.mjs';
+import { adminAuthRequest } from './admin-auth.mjs';
 import { syncRequest } from './report-sync.mjs';
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw4V5uwc4dNMR3f4JcsVuwpoOm5N8JhxjNQBXjTdWqEAezqr53B-6RkQY0C1O85Zssa/exec';
 const DEFAULT_IMAGE = 'https://i.ibb.co/ksJDTmT7/new-transparent.png';
@@ -138,11 +139,17 @@ export default {
     const pathname = new URL(request.url).pathname;
     if (pathname === '/api/report-sync') return syncRequest(request, env);
     if (pathname === '/admin' || pathname.startsWith('/admin/') || pathname === '/admin-report.html') {
+      if (pathname === '/admin/api/login' || pathname === '/admin/api/logout') return adminAuthRequest(request, env);
       if (pathname.startsWith('/admin/api/')) return reportRequest(request, env);
       if (request.method !== 'GET') return new Response(null,{status:405});
       const checkUrl = new URL('/admin/api/me', request.url);
       const check = await reportRequest(new Request(checkUrl, {headers:request.headers}), env);
-      if (!check.ok) return check;
+      if (!check.ok) {
+        if (check.status !== 401) return check;
+        const login = await env.ASSETS.fetch(new Request(new URL('/admin-login.html',request.url),request));
+        const headers = new Headers(login.headers); headers.set('Cache-Control','private, no-store'); headers.set('X-Robots-Tag','noindex');
+        return new Response(login.body,{status:login.status,headers});
+      }
       const page = await env.ASSETS.fetch(new Request(new URL('/admin-report.html',request.url), request));
       const headers = new Headers(page.headers);
       headers.set('Cache-Control','private, no-store');

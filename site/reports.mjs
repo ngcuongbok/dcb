@@ -1,31 +1,14 @@
-import { verifyAccess } from './report-auth.mjs';
+import { adminIdentity } from './admin-auth.mjs';
 
 const json = (value, status = 200) => Response.json(value, {status, headers:{'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff','X-Robots-Tag':'noindex'}});
-const validEmail = email => typeof email === 'string' && email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 const validDate = date => /^\d{4}-\d{2}-\d{2}$/.test(date) && !Number.isNaN(Date.parse(date + 'T00:00:00Z'));
 
 export async function reportRequest(request, env) {
-  if (!env.REPORTS_DB || !env.REPORT_OWNER_EMAIL || !env.ACCESS_TEAM_DOMAIN || !env.ACCESS_AUD) return json({error:'report_not_configured'},503);
-  const identity = await verifyAccess(request, env);
+  if (!env.REPORTS_DB || !env.ADMIN_PASSWORD_HASH) return json({error:'report_not_configured'},503);
+  const identity = await adminIdentity(request, env);
   if (!identity) return json({error:'unauthorized'},401);
-  const owner = identity.email === String(env.REPORT_OWNER_EMAIL).trim().toLowerCase();
-  const manager = owner ? null : await env.REPORTS_DB.prepare('SELECT email FROM report_allowed_managers WHERE email = ?').bind(identity.email).first();
-  if (!owner && !manager) return json({error:'forbidden'},403);
   const url = new URL(request.url);
-  if (url.pathname === '/admin/api/me' && request.method === 'GET') return json({email:identity.email, owner});
-  if (url.pathname === '/admin/api/managers') {
-    if (!owner) return json({error:'owner_only'},403);
-    if (request.method === 'GET') return json({managers:(await env.REPORTS_DB.prepare('SELECT email, added_at FROM report_allowed_managers ORDER BY email').all()).results});
-    if (request.method !== 'POST' && request.method !== 'DELETE') return json({error:'method'},405);
-    if (request.headers.get('origin') !== url.origin) return json({error:'origin'},403);
-    if (!/^application\/json\b/i.test(request.headers.get('content-type') || '')) return json({error:'content_type'},415);
-    let body; try { body = await request.json(); } catch { return json({error:'invalid_json'},400); }
-    const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : '';
-    if (!validEmail(email) || email === identity.email) return json({error:'invalid_email'},400);
-    if (request.method === 'POST') await env.REPORTS_DB.prepare('INSERT INTO report_allowed_managers(email,added_at,added_by) VALUES(?,?,?) ON CONFLICT(email) DO NOTHING').bind(email,new Date().toISOString(),identity.email).run();
-    else await env.REPORTS_DB.prepare('DELETE FROM report_allowed_managers WHERE email = ?').bind(email).run();
-    return json({ok:true});
-  }
+  if (url.pathname === '/admin/api/me' && request.method === 'GET') return json({email:'admin', owner:true});
   if (url.pathname !== '/admin/api/report' || request.method !== 'GET') return json({error:'not_found'},404);
   const from = url.searchParams.get('from') || '';
   const to = url.searchParams.get('to') || '';
