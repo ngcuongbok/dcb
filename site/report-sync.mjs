@@ -1,6 +1,6 @@
 const out = (body, status=200) => Response.json(body,{status,headers:{'Cache-Control':'no-store'}});
 const fields = {
-  keys:['row_id','order_group','legacy_order','created_at','status','booth_type','payment_method','staff_id','staff_name','final_amount'],
+  keys:['row_id','order_group','legacy_order','created_at','status','booth_type','payment_method','staff_id','staff_name','final_amount','gross_amount','discount_amount','estimated_amount','product'],
   shifts:['shift_id','staff_id','staff_name','start_at','end_at','status','total_revenue','cash_revenue','transfer_revenue','ptb_revenue','selfbooth_revenue'],
   staff:['staff_id','staff_name','active']
 };
@@ -9,7 +9,7 @@ const short = (x,max=120) => typeof x === 'string' && x.length <= max;
 const amount = x => Number.isSafeInteger(x) && x >= 0 && x <= 1000000000;
 function validRow(kind,r) {
   if (!r || typeof r !== 'object' || Array.isArray(r) || Object.keys(r).some(k => !fields[kind].includes(k))) return false;
-  if (kind === 'keys') return hex(r.row_id) && hex(r.order_group) && [0,1].includes(r.legacy_order) && short(r.created_at,40) && /^\d{4}-\d\d-\d\d/.test(r.created_at) && ['available','pending','used'].includes(r.status) && ['ptb','selfbooth'].includes(r.booth_type) && short(r.payment_method,30) && short(r.staff_id,120) && short(r.staff_name,120) && amount(r.final_amount);
+  if (kind === 'keys') return hex(r.row_id) && hex(r.order_group) && [0,1].includes(r.legacy_order) && short(r.created_at,40) && /^\d{4}-\d\d-\d\d/.test(r.created_at) && ['available','pending','used'].includes(r.status) && ['ptb','selfbooth'].includes(r.booth_type) && short(r.payment_method,30) && short(r.staff_id,120) && short(r.staff_name,120) && amount(r.final_amount) && (r.gross_amount === undefined || (amount(r.gross_amount) && amount(r.discount_amount) && r.gross_amount === r.discount_amount + r.final_amount && [0,1].includes(r.estimated_amount) && ['sbLong','sbMedium','sbShort','ptb2x6','ptb4x6'].includes(r.product)));
   if (kind === 'shifts') return short(r.shift_id,120) && !!r.shift_id && short(r.staff_id,120) && short(r.staff_name,120) && short(r.start_at,40) && /^\d{4}-\d\d-\d\d/.test(r.start_at) && short(r.end_at,40) && short(r.status,30) && ['total_revenue','cash_revenue','transfer_revenue','ptb_revenue','selfbooth_revenue'].every(k => amount(r[k]));
   return short(r.staff_id,120) && !!r.staff_id && short(r.staff_name,120) && [0,1].includes(r.active);
 }

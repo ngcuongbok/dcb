@@ -22,6 +22,14 @@ test('admin login protects report, validates origin, rate limits and revokes ses
  assert.match(response.headers.get('set-cookie'),/HttpOnly; Secure; SameSite=Strict/);
  assert.equal((await reportRequest(request('/admin/api/me',{headers:{Cookie:cookie}}),env)).status,200);
  assert.equal((await reportRequest(request('/admin/api/report?from=2026-11-01&to=2026-11-30',{headers:{Cookie:cookie}}),env)).status,200);
+ db.prepare("INSERT INTO report_snapshots(snapshot_id,created_at,completed_at,checked_at,expected_keys,expected_shifts,expected_staff,complete) VALUES('s','2026-11-15','2026-11-15','2026-11-15',2,0,0,1)").run();
+ const sales=[{order_group:'same',legacy_order:0,status:'used',booth_type:'ptb',payment_method:'cash',created_at:'2026-11-15',staff_id:'a',staff_name:'A',final_amount:60000,gross_amount:100000,discount_amount:40000,estimated_amount:0,product:'ptb2x6'},{order_group:'same',legacy_order:0,status:'available',booth_type:'selfbooth',payment_method:'transfer',created_at:'2026-11-15',staff_id:'a',staff_name:'A',final_amount:50000,gross_amount:50000,discount_amount:0,estimated_amount:0,product:'sbShort'}];
+ db.prepare("INSERT INTO report_chunks VALUES('s','keys',0,2,?)").run(JSON.stringify(sales));
+ const result=await (await reportRequest(request('/admin/api/report?from=2026-11-01&to=2026-11-30',{headers:{Cookie:cookie}}),env)).json();
+ assert.equal(result.summary.sold_revenue,110000);assert.equal(result.summary.used_revenue,60000);
+ assert.equal(result.summary.gross_revenue,150000);assert.equal(result.summary.discounts,40000);
+ assert.equal(result.summary.transfer_revenue,50000);assert.equal(result.summary.orders,1);
+ assert.equal(result.daily[0].ptb2x6,1);assert.equal(result.daily[0].sbShort,1);
  assert.equal((await adminAuthRequest(request('/admin/api/logout',{method:'POST',headers:{Cookie:cookie,Origin:'https://example.com'}}),env)).status,200);
  assert.equal((await reportRequest(request('/admin/api/me',{headers:{Cookie:cookie}}),env)).status,401);
  for(let i=0;i<8;i++) await adminAuthRequest(login('wrong'),env);
