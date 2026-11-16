@@ -2,6 +2,8 @@
 // served straight from static assets without waiting for Drive or Apps Script.
 import { reportRequest } from './reports.mjs';
 import { adminAuthRequest } from './admin-auth.mjs';
+import { customerRequest } from './customer-auth.mjs';
+import { customerIngest } from './customer-ingest.mjs';
 import { syncRequest } from './report-sync.mjs';
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw4V5uwc4dNMR3f4JcsVuwpoOm5N8JhxjNQBXjTdWqEAezqr53B-6RkQY0C1O85Zssa/exec';
 const DEFAULT_IMAGE = 'https://i.ibb.co/ksJDTmT7/new-transparent.png';
@@ -138,6 +140,8 @@ export default {
   async fetch(request, env, ctx) {
     const pathname = new URL(request.url).pathname;
     if (pathname === '/api/report-sync') return syncRequest(request, env);
+    if (pathname === '/api/customer-ingest') return customerIngest(request, env);
+    if (pathname.startsWith('/api/customer/')) return customerRequest(request, env);
     if (pathname === '/admin' || pathname.startsWith('/admin/') || pathname === '/admin-report.html') {
       if (pathname === '/admin/api/login' || pathname === '/admin/api/logout') return adminAuthRequest(request, env);
       if (pathname.startsWith('/admin/api/')) return reportRequest(request, env);

@@ -1,0 +1,1 @@
+(()=>{const a=document.getElementById('dicii-customer-link'),id=new URL(location.href).searchParams.get('id');if(a&&id&&/^[A-Za-z0-9_-]{6,160}$/.test(id)){const u=new URL('/tai-khoan.html',location.origin);u.searchParams.set('claim',id);a.href=u.pathname+u.search}})();

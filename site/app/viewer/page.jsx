@@ -18,6 +18,7 @@ export default function ViewerV2() {
           <img src="https://i.ibb.co/ksJDTmT7/new-transparent.png" alt="DiciiBooth Logo" className="ptb-logo no-fancybox" />
           <h1>📸 DiciiBooth Gallery</h1>
           <p>Xem và tải ảnh, video kỷ niệm của bạn 🌿</p>
+          <a id="dicii-customer-link" href="/tai-khoan.html" style={{display:'inline-block',margin:'8px 0',padding:'10px 16px',borderRadius:'999px',background:'#e6ebdc',color:'#294d35',fontWeight:700,textDecoration:'none'}}>Nhận tài khoản / Lịch sử ảnh</a>
           <div className="ptb-socials">
             <a href="https://www.facebook.com/profile.php?id=61576514052593" target="_blank" rel="noopener" className="fb" title="Facebook"><svg viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" /></svg></a>
             <a href="https://zalo.me/0389390409" target="_blank" rel="noopener" className="zalo" title="Zalo"><img src="https://stc-zpl.zdn.vn/favicon.ico" alt="Zalo" className="no-fancybox" style={{width:20,height:20,objectFit:'contain',borderRadius:0}} /></a>
@@ -32,5 +33,6 @@ export default function ViewerV2() {
       <a href="https://zalo.me/0389390409" target="_blank" rel="noopener" className="ptb-cta-fixed" id="ptbCtaBtn">💬 Đặt lịch ngay</a>
     </div>
     <Script src="/viewer-v2-assets/viewer.js" strategy="afterInteractive" />
+    <Script src="/customer-link.js" strategy="afterInteractive" />
   </>;
 }

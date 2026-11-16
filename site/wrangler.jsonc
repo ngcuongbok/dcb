@@ -13,7 +13,9 @@
       "/admin",
       "/admin/*",
       "/admin-report.html",
-      "/api/report-sync"
+      "/api/report-sync",
+      "/api/customer/*",
+      "/api/customer-ingest"
     ]
   },
   "main": "worker.mjs",

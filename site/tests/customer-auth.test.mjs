@@ -1,0 +1,38 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { DatabaseSync } from 'node:sqlite';
+import { readFileSync } from 'node:fs';
+import { customerLookup,customerRequest } from '../customer-auth.mjs';
+import { customerIngest } from '../customer-ingest.mjs';
+
+test('claim is atomic per customer, login isolates history and logout revokes access',async()=>{
+ const db=new DatabaseSync(':memory:');db.exec(readFileSync(new URL('../migrations/0006_customer_accounts.sql',import.meta.url),'utf8'));
+ const wrapped={prepare(sql){let args=[];return {bind(...v){args=v;return this},async first(){return db.prepare(sql).get(...args)||null},async all(){return {results:db.prepare(sql).all(...args)}},async run(){return db.prepare(sql).run(...args)}}},async batch(items){return Promise.all(items.map(x=>x.run()))}};
+ const env={REPORTS_DB:wrapped,CUSTOMER_LOOKUP_KEY:'ab'.repeat(32),REPORT_SYNC_TOKEN:'a'.repeat(40)};
+ const lookup=customerLookup('0912345678',env.CUSTOMER_LOOKUP_KEY);assert.equal(lookup,customerLookup('+84912345678',env.CUSTOMER_LOOKUP_KEY));
+ const entry={alias_id:'261112001_S803171',customer_lookup:lookup,folder_id:'folder123456789',mode:'sb',session_date:'2026-11-12',drive_state:'unknown',thumbnail_file_id:null};
+ const req=(path,method='GET',body,headers={})=>new Request('https://example.com'+path,{method,headers:{Origin:'https://example.com','CF-Connecting-IP':'192.0.2.1',...(body?{'Content-Type':'application/json'}:{}),...headers},body:body?JSON.stringify(body):undefined});
+ assert.equal((await customerIngest(req('/api/customer-ingest','POST',{rows:[entry]}),env)).status,401);
+ assert.equal((await customerIngest(req('/api/customer-ingest','POST',{rows:[entry]},{Authorization:'Bearer '+env.REPORT_SYNC_TOKEN}),env)).status,200);
+ assert.equal((await customerRequest(req('/api/customer/history'),env)).status,401);
+ assert.equal((await customerRequest(req('/api/customer/claim','POST',{id:entry.alias_id,password:'1234567890'},{Origin:'https://evil.example'}),env)).status,403);
+ let r=await customerRequest(req('/api/customer/claim','POST',{id:entry.alias_id,password:'1234567890'}),env);assert.equal(r.status,200);
+ let cookie=r.headers.get('set-cookie').split(';')[0];assert.equal((await customerRequest(req('/api/customer/claim','POST',{id:entry.alias_id,password:'abcdefghij'}),env)).status,409);
+ r=await customerRequest(req('/api/customer/history','GET',null,{Cookie:cookie}),env);const history=await r.json();assert.equal(history.sessions.length,1);assert.equal(history.sessions[0].alias_id,entry.alias_id);assert.equal(JSON.stringify(history).includes('0912345678'),false);
+ assert.equal((await customerRequest(req('/api/customer/logout','POST',null,{Cookie:cookie}),env)).status,200);
+ assert.equal((await customerRequest(req('/api/customer/history','GET',null,{Cookie:cookie}),env)).status,401);
+ assert.equal((await customerRequest(req('/api/customer/login','POST',{phone:'0912345678',password:'wrongwrong'}),env)).status,401);
+ r=await customerRequest(req('/api/customer/login','POST',{phone:'+84912345678',password:'1234567890'}),env);assert.equal(r.status,200);
+ const firstCookie=r.headers.get('set-cookie').split(';')[0];
+ const second={...entry,alias_id:'261112002_P123456',folder_id:'differentFolder123',mode:'ptb',customer_lookup:customerLookup('0987654321',env.CUSTOMER_LOOKUP_KEY)};
+ assert.equal((await customerIngest(req('/api/customer-ingest','POST',{rows:[second]},{Authorization:'Bearer '+env.REPORT_SYNC_TOKEN}),env)).status,200);
+ const secondClaim=await customerRequest(req('/api/customer/claim','POST',{id:second.alias_id,password:'abcdefghijk'}),env);assert.equal(secondClaim.status,200);
+ const secondCookie=secondClaim.headers.get('set-cookie').split(';')[0];
+ const one=await (await customerRequest(req('/api/customer/history','GET',null,{Cookie:firstCookie}),env)).json();
+ const two=await (await customerRequest(req('/api/customer/history','GET',null,{Cookie:secondCookie}),env)).json();
+ assert.deepEqual(one.sessions.map(x=>x.alias_id),[entry.alias_id]);assert.deepEqual(two.sessions.map(x=>x.alias_id),[second.alias_id]);
+ assert.equal((await customerIngest(req('/api/customer-ingest','POST',{rows:[{...entry,customer_lookup:second.customer_lookup}]},{Authorization:'Bearer '+env.REPORT_SYNC_TOKEN}),env)).status,200);
+ const disabled=await (await customerRequest(req('/api/customer/history','GET',null,{Cookie:firstCookie}),env)).json();assert.equal(disabled.sessions.length,0);
+ assert.equal((await customerRequest(req('/api/customer/claim','POST',{id:entry.alias_id,password:'1234567890'}),env)).status,409);
+ db.close();
+});

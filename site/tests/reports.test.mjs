@@ -5,13 +5,14 @@ import {readFileSync} from 'node:fs';
 import {scryptSync} from 'node:crypto';
 import {adminAuthRequest} from '../admin-auth.mjs';
 import {reportRequest} from '../reports.mjs';
+import {customerLookup} from '../customer-auth.mjs';
 
 test('admin login protects report, validates origin, rate limits and revokes sessions', async () => {
  const db=new DatabaseSync(':memory:');
- for (const name of ['0001_online_reports','0002_report_access','0003_report_sync_health','0004_report_chunks','0005_admin_login']) db.exec(readFileSync(new URL('../migrations/'+name+'.sql',import.meta.url),'utf8'));
+ for (const name of ['0001_online_reports','0002_report_access','0003_report_sync_health','0004_report_chunks','0005_admin_login','0006_customer_accounts']) db.exec(readFileSync(new URL('../migrations/'+name+'.sql',import.meta.url),'utf8'));
  const wrapped={prepare(sql){let args=[];return {bind(...values){args=values;return this},async first(){return db.prepare(sql).get(...args)||null},async all(){return {results:db.prepare(sql).all(...args)}},async run(){return {meta:db.prepare(sql).run(...args)}}}},async batch(statements){return Promise.all(statements.map(s=>s.all()))}};
  const salt=Buffer.alloc(16,1), hash=scryptSync('test-password',salt,32,{N:32768,r:8,p:3,maxmem:64*1024*1024});
- const env={REPORTS_DB:wrapped,ADMIN_PASSWORD_HASH:`scrypt-v1:${salt.toString('hex')}:${hash.toString('hex')}`};
+ const env={REPORTS_DB:wrapped,ADMIN_PASSWORD_HASH:`scrypt-v1:${salt.toString('hex')}:${hash.toString('hex')}`,CUSTOMER_LOOKUP_KEY:'ab'.repeat(32)};
  function request(path, options={}) {return new Request('https://example.com'+path,options)}
  const login=(password,origin='https://example.com')=>request('/admin/api/login',{method:'POST',headers:{Origin:origin,'Content-Type':'application/json','CF-Connecting-IP':'127.0.0.1'},body:JSON.stringify({username:'admin',password})});
  assert.equal((await reportRequest(request('/admin/api/me'),env)).status,401);
@@ -30,6 +31,13 @@ test('admin login protects report, validates origin, rate limits and revokes ses
  assert.equal(result.summary.gross_revenue,150000);assert.equal(result.summary.discounts,40000);
  assert.equal(result.summary.transfer_revenue,50000);assert.equal(result.summary.orders,1);
  assert.equal(result.daily[0].ptb2x6,1);assert.equal(result.daily[0].sbShort,1);
+ const lookup=customerLookup('0912345678',env.CUSTOMER_LOOKUP_KEY);
+ db.prepare('INSERT INTO customer_accounts VALUES(?,?,?)').run(lookup,'old',1);
+ db.prepare('INSERT INTO customer_login_sessions VALUES(?,?,?)').run('old-session',lookup,9999999999);
+ const change=request('/admin/api/customer-password',{method:'POST',headers:{Cookie:cookie,Origin:'https://example.com','Content-Type':'application/json'},body:JSON.stringify({phone:'0912345678',password:'newpassword123'})});
+ assert.equal((await reportRequest(change,env)).status,200);
+ assert.match(db.prepare('SELECT password_hash FROM customer_accounts WHERE customer_lookup=?').get(lookup).password_hash,/^scrypt-v1:/);
+ assert.equal(db.prepare('SELECT COUNT(*) AS n FROM customer_login_sessions WHERE customer_lookup=?').get(lookup).n,0);
  assert.equal((await adminAuthRequest(request('/admin/api/logout',{method:'POST',headers:{Cookie:cookie,Origin:'https://example.com'}}),env)).status,200);
  assert.equal((await reportRequest(request('/admin/api/me',{headers:{Cookie:cookie}}),env)).status,401);
  for(let i=0;i<8;i++) await adminAuthRequest(login('wrong'),env);

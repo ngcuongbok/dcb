@@ -1,4 +1,6 @@
 import { adminIdentity } from './admin-auth.mjs';
+import { customerLookup } from './customer-auth.mjs';
+import { randomBytes, scryptSync } from 'node:crypto';
 
 const json = (value, status = 200) => Response.json(value, {status, headers:{'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff','X-Robots-Tag':'noindex'}});
 const validDate = date => /^\d{4}-\d{2}-\d{2}$/.test(date) && !Number.isNaN(Date.parse(date + 'T00:00:00Z'));
@@ -9,6 +11,21 @@ export async function reportRequest(request, env) {
   if (!identity) return json({error:'unauthorized'},401);
   const url = new URL(request.url);
   if (url.pathname === '/admin/api/me' && request.method === 'GET') return json({email:'admin', owner:true});
+  if (url.pathname === '/admin/api/customer-password' && request.method === 'POST') {
+    if (request.headers.get('origin') !== url.origin || !/^application\/json\b/i.test(request.headers.get('content-type') || '')) return json({error:'invalid_request'},403);
+    let body; try {const raw=await request.text();if(raw.length>4096)return json({error:'invalid_request'},400);body=JSON.parse(raw)} catch {return json({error:'invalid_request'},400)}
+    if (!/^[a-f0-9]{64}$/i.test(String(env.CUSTOMER_LOOKUP_KEY||''))) return json({error:'unavailable'},503);
+    const lookup=customerLookup(body?.phone,env.CUSTOMER_LOOKUP_KEY),password=body?.password;
+    if (!lookup || typeof password!=='string' || password.length<10 || password.length>128) return json({error:'invalid_request'},400);
+    const account=await env.REPORTS_DB.prepare('SELECT customer_lookup FROM customer_accounts WHERE customer_lookup=?').bind(lookup).first();
+    if(!account)return json({error:'not_found'},404);
+    const salt=randomBytes(16),hash=scryptSync(password,salt,32,{N:32768,r:8,p:3,maxmem:64*1024*1024});
+    await env.REPORTS_DB.batch([
+      env.REPORTS_DB.prepare('UPDATE customer_accounts SET password_hash=? WHERE customer_lookup=?').bind('scrypt-v1:'+salt.toString('hex')+':'+hash.toString('hex'),lookup),
+      env.REPORTS_DB.prepare('DELETE FROM customer_login_sessions WHERE customer_lookup=?').bind(lookup)
+    ]);
+    return json({ok:true});
+  }
   if (url.pathname !== '/admin/api/report' || request.method !== 'GET') return json({error:'not_found'},404);
   const from = url.searchParams.get('from') || '';
   const to = url.searchParams.get('to') || '';

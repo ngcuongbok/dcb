@@ -13,7 +13,7 @@ function validRow(kind,r) {
   if (kind === 'shifts') return short(r.shift_id,120) && !!r.shift_id && short(r.staff_id,120) && short(r.staff_name,120) && short(r.start_at,40) && /^\d{4}-\d\d-\d\d/.test(r.start_at) && short(r.end_at,40) && short(r.status,30) && ['total_revenue','cash_revenue','transfer_revenue','ptb_revenue','selfbooth_revenue'].every(k => amount(r[k]));
   return short(r.staff_id,120) && !!r.staff_id && short(r.staff_name,120) && [0,1].includes(r.active);
 }
-async function authorized(request, token) {
+export async function authorized(request, token) {
   if (typeof token !== 'string' || token.length < 32) return false;
   const supplied = request.headers.get('authorization') || '';
   const encoder=new TextEncoder();
